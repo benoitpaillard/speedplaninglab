@@ -118,148 +118,211 @@ def board_half_width(x, length, beam):
     u = np.asarray(x) / max(length, 1e-9)
     aft = 0.82 + 0.18 * np.sin(np.clip(u / 0.62, 0, 1) * np.pi / 2)
     nose_taper = 1.0 - 0.88 * _smoothstep((u - 0.62) / 0.38)
-    width_factor = np.where(u <= 0.62, aft, nose_taper)
-    return 0.5 * beam * np.maximum(width_factor, 0.10)
+    return 0.5 * beam * np.maximum(np.where(u <= 0.62, aft, nose_taper), 0.10)
 
 
-def make_board_3d(length, beam, trim_deg, beta_deg, wet_len, lcg, lcp, tow_angle_deg,
-                  vertical_scale=4.0, nose_rocker=0.035, thickness=0.018):
-    """Create an orbitable Plotly 3D rendering of the running board geometry."""
-    nx, ny = 72, 31
+def make_board_3d(length, beam, speed_kmh, trim_deg, beta_deg, wet_len, lcg, lcp,
+                  tow_angle_deg, vertical_scale=4.0, stance_width=0.42,
+                  nose_rocker=0.035, thickness=0.018):
+    """Orbitable engineering visualisation; shape/spray are visual proxies."""
+    nx, ny = 84, 35
     xs = np.linspace(0.0, length, nx)
     yn = np.linspace(-1.0, 1.0, ny)
     X = np.repeat(xs[:, None], ny, axis=1)
     half = board_half_width(xs, length, beam)
     Y = half[:, None] * yn[None, :]
-
     tau = math.radians(trim_deg)
     beta = math.radians(beta_deg)
-    u = X / max(length, 1e-9)
-    rocker_s = np.clip((u - 0.73) / 0.27, 0.0, 1.0)
-    intrinsic_rocker = nose_rocker * rocker_s**2.2
-    deadrise = np.abs(Y) * math.tan(beta)
-    Zbottom_phys = X * math.tan(tau) + intrinsic_rocker + deadrise
+    wet = min(max(wet_len, 0.0), length)
 
+    def rocker_phys(xv):
+        uv = np.asarray(xv) / max(length, 1e-9)
+        rs = np.clip((uv - 0.73) / 0.27, 0.0, 1.0)
+        return nose_rocker * rs**2.2
+
+    heave = -(wet * math.tan(tau) + float(rocker_phys(wet)))
+
+    intrinsic_rocker = rocker_phys(X)
+    deadrise = np.abs(Y) * math.tan(beta)
+    Zbottom_phys = heave + X * math.tan(tau) + intrinsic_rocker + deadrise
     deck_crown = 0.004 * (1.0 - (Y / np.maximum(half[:, None], 1e-6)) ** 2)
     Ztop_phys = Zbottom_phys + thickness + deck_crown
+
     Zbottom = Zbottom_phys * vertical_scale
     Ztop = Ztop_phys * vertical_scale
 
+    def bottom_z(xv, yv=0.0):
+        return heave + xv * math.tan(tau) + float(rocker_phys(xv)) + abs(yv) * math.tan(beta)
+
+    def deck_z(xv, yv=0.0):
+        hw = float(board_half_width(np.array([xv]), length, beam)[0])
+        crown = 0.004 * (1.0 - min((yv / max(hw, 1e-6)) ** 2, 1.0))
+        return bottom_z(xv, yv) + thickness + crown
+
     fig = go.Figure()
 
-    wx = np.linspace(-0.10 * length, 1.08 * length, 2)
-    wy = np.linspace(-0.85 * beam, 0.85 * beam, 2)
+    wx = np.linspace(-0.28 * length, 1.06 * length, 2)
+    wy = np.linspace(-1.05 * beam, 1.05 * beam, 2)
     WX, WY = np.meshgrid(wx, wy)
-    WZ = np.zeros_like(WX)
     fig.add_trace(go.Surface(
-        x=WX, y=WY, z=WZ,
-        surfacecolor=np.zeros_like(WX),
-        colorscale=[[0, "rgba(25,126,185,0.34)"], [1, "rgba(25,126,185,0.34)"]],
-        showscale=False, opacity=0.34, hoverinfo="skip", name="Water plane",
+        x=WX, y=WY, z=np.zeros_like(WX), surfacecolor=np.zeros_like(WX),
+        colorscale=[[0, "#1e91c7"], [1, "#1e91c7"]], showscale=False,
+        opacity=0.23, hoverinfo="skip", name="Water",
+    ))
+    fig.add_trace(go.Mesh3d(
+        x=[0.02 * length, -0.26 * length, -0.26 * length],
+        y=[0.0, -0.72 * beam, 0.72 * beam], z=[0.002 * vertical_scale] * 3,
+        i=[0], j=[1], k=[2], color="#55c7e8", opacity=0.16,
+        hoverinfo="skip", name="Wake (schematic)",
     ))
 
     fig.add_trace(go.Surface(
         x=X, y=Y, z=Zbottom, surfacecolor=X,
-        colorscale=[[0, "#111827"], [0.55, "#263548"], [1, "#44566d"]],
-        showscale=False, opacity=0.98,
-        lighting=dict(ambient=0.45, diffuse=0.75, roughness=0.35, specular=0.6, fresnel=0.15),
-        lightposition=dict(x=-2, y=-3, z=6),
-        hovertemplate="Bottom<br>x=%{x:.3f} m<br>y=%{y:.3f} m<br>z=%{z:.3f}<extra></extra>",
+        colorscale=[[0, "#101923"], [0.55, "#1d2b37"], [1, "#324555"]],
+        showscale=False, opacity=0.99,
+        lighting=dict(ambient=0.42, diffuse=0.78, roughness=0.42, specular=0.48, fresnel=0.12),
+        lightposition=dict(x=-2, y=-3, z=7),
+        customdata=Zbottom_phys,
+        hovertemplate="Bottom<br>x=%{x:.3f} m<br>y=%{y:.3f} m<br>physical z=%{customdata:.3f} m<extra></extra>",
         name="Bottom",
     ))
     fig.add_trace(go.Surface(
         x=X, y=Y, z=Ztop, surfacecolor=X,
-        colorscale=[[0, "#d7dde5"], [0.60, "#f1f4f8"], [1, "#c8d0da"]],
+        colorscale=[[0, "#173f4d"], [0.52, "#236071"], [0.82, "#2f7b86"], [1, "#1f5363"]],
         showscale=False, opacity=1.0,
-        lighting=dict(ambient=0.55, diffuse=0.8, roughness=0.25, specular=0.8, fresnel=0.2),
-        lightposition=dict(x=-2, y=-3, z=7),
-        hovertemplate="Deck<br>x=%{x:.3f} m<br>y=%{y:.3f} m<br>z=%{z:.3f}<extra></extra>",
+        lighting=dict(ambient=0.48, diffuse=0.82, roughness=0.28, specular=0.72, fresnel=0.16),
+        lightposition=dict(x=-2, y=-4, z=8),
+        customdata=Ztop_phys,
+        hovertemplate="Deck<br>x=%{x:.3f} m<br>y=%{y:.3f} m<br>physical z=%{customdata:.3f} m<extra></extra>",
         name="Deck",
     ))
 
     for sgn in (-1, 1):
         rail_y = sgn * half
-        rail_z = (xs * math.tan(tau)
-                  + nose_rocker * np.clip((xs / length - 0.73) / 0.27, 0, 1) ** 2.2
-                  + np.abs(rail_y) * math.tan(beta)
-                  + thickness * 0.55) * vertical_scale
+        rail_z = np.array([deck_z(float(xv), float(yv)) for xv, yv in zip(xs, rail_y)]) * vertical_scale
         fig.add_trace(go.Scatter3d(
             x=xs, y=rail_y, z=rail_z, mode="lines",
-            line=dict(color="rgba(14,20,28,0.85)", width=5),
-            hoverinfo="skip", showlegend=False,
+            line=dict(color="#0b1117", width=5), hoverinfo="skip", showlegend=False,
         ))
+    center_z = np.array([deck_z(float(xv), 0.0) for xv in xs]) * vertical_scale
+    fig.add_trace(go.Scatter3d(
+        x=xs, y=np.zeros_like(xs), z=center_z + 0.0012 * vertical_scale,
+        mode="lines", line=dict(color="#7dd3fc", width=4),
+        hoverinfo="skip", name="Deck centreline",
+    ))
 
-    wet = min(max(wet_len, 0.0), length)
-    mask = X <= wet
-    Zw = np.where(mask, Zbottom + 0.0015 * vertical_scale, np.nan)
+    wet_mask = (X <= wet) & (Zbottom_phys <= 0.006)
+    Zw = np.where(wet_mask, Zbottom + 0.0014 * vertical_scale, np.nan)
     fig.add_trace(go.Surface(
-        x=X, y=Y, z=Zw,
-        surfacecolor=np.where(mask, 1.0, np.nan),
-        colorscale=[[0, "#ff7a18"], [1, "#ffb347"]],
-        showscale=False, opacity=0.80,
-        hovertemplate="Predicted wetted footprint<extra></extra>",
+        x=X, y=Y, z=Zw, surfacecolor=np.where(wet_mask, 1.0, np.nan),
+        colorscale=[[0, "#ff7a18"], [1, "#ffb347"]], showscale=False,
+        opacity=0.86, hovertemplate="Predicted wetted footprint<extra></extra>",
         name="Wetted footprint",
     ))
 
-    def deck_center_z(xv):
-        sr = max(min((xv / length - 0.73) / 0.27, 1.0), 0.0)
-        return (xv * math.tan(tau) + nose_rocker * sr**2.2 + thickness + 0.004) * vertical_scale
+    stance = min(max(stance_width, 0.26), 0.55 * length)
+    rear_x = np.clip(lcg - 0.50 * stance, 0.08 * length, 0.78 * length)
+    front_x = np.clip(lcg + 0.50 * stance, 0.14 * length, 0.86 * length)
 
-    marker_x = [lcg, lcp]
-    marker_z = [deck_center_z(lcg), deck_center_z(lcp)]
+    def add_binding(xc, yaw_deg, label):
+        plate_l = min(0.23, 0.16 * length)
+        plate_w = min(0.105, 0.62 * beam)
+        yaw = math.radians(yaw_deg)
+        local = np.array([
+            [-plate_l / 2, -plate_w / 2], [plate_l / 2, -plate_w / 2],
+            [plate_l / 2, plate_w / 2], [-plate_l / 2, plate_w / 2],
+        ])
+        rot = np.array([[math.cos(yaw), -math.sin(yaw)], [math.sin(yaw), math.cos(yaw)]])
+        pts = local @ rot.T
+        bx = pts[:, 0] + xc
+        by = pts[:, 1]
+        bz_phys = np.array([deck_z(float(px), float(py)) + 0.006 for px, py in zip(bx, by)])
+        bz = bz_phys * vertical_scale
+        fig.add_trace(go.Mesh3d(
+            x=bx, y=by, z=bz, i=[0, 0], j=[1, 2], k=[2, 3],
+            color="#d3a84b", opacity=0.96, flatshading=True,
+            hovertemplate=f"{label}<extra></extra>", name=label,
+        ))
+        closed = np.r_[0:4, 0]
+        fig.add_trace(go.Scatter3d(
+            x=bx[closed], y=by[closed], z=bz[closed], mode="lines",
+            line=dict(color="#4b3412", width=5), hoverinfo="skip", showlegend=False,
+        ))
+
+    add_binding(float(rear_x), -10.0, "Rear binding")
+    add_binding(float(front_x), 12.0, "Front binding")
+
+    lcg_z = (deck_z(lcg, 0.0) + 0.025) * vertical_scale
+    lcp_z = (bottom_z(lcp, 0.0) + 0.006) * vertical_scale
     fig.add_trace(go.Scatter3d(
-        x=marker_x, y=[0, 0], z=marker_z,
-        mode="markers+text", text=["CG", "LCP"], textposition="top center",
-        marker=dict(size=[8, 7], color=["#e11d48", "#22c55e"], line=dict(width=1, color="white")),
-        textfont=dict(size=12), name="CG / LCP",
+        x=[lcg, lcp], y=[0, 0], z=[lcg_z, lcp_z], mode="markers+text",
+        text=["LCG", "LCP"], textposition="top center",
+        marker=dict(size=[8, 8], color=["#e83e73", "#80e27e"], line=dict(width=1, color="#0b1117")),
+        textfont=dict(size=12), name="LCG / LCP",
         hovertemplate="%{text}<br>x=%{x:.3f} m<extra></extra>",
     ))
 
-    anchor_x = lcg
-    anchor_z = deck_center_z(anchor_x) + 0.18 * vertical_scale
+    anchor_x = float(np.clip(lcg + 0.06 * length, 0.0, length))
+    anchor_z_phys = deck_z(anchor_x, 0.0) + 0.20
     tow_abs = math.radians(trim_deg + tow_angle_deg)
-    tow_length = 0.48 * length
+    tow_length = 0.46 * length
     tx = anchor_x + tow_length * math.cos(tow_abs)
-    tz = anchor_z + tow_length * math.sin(tow_abs) * vertical_scale
+    tz_phys = anchor_z_phys + tow_length * math.sin(tow_abs)
     fig.add_trace(go.Scatter3d(
-        x=[anchor_x, tx], y=[0, 0], z=[anchor_z, tz],
-        mode="lines", line=dict(color="#f43f5e", width=7),
-        name="Tow direction", hoverinfo="skip",
+        x=[anchor_x, tx], y=[0, 0],
+        z=[anchor_z_phys * vertical_scale, tz_phys * vertical_scale], mode="lines",
+        line=dict(color="#ff3864", width=7), name="Tow direction", hoverinfo="skip",
     ))
     fig.add_trace(go.Cone(
-        x=[tx], y=[0], z=[tz],
+        x=[tx], y=[0], z=[tz_phys * vertical_scale],
         u=[math.cos(tow_abs)], v=[0], w=[math.sin(tow_abs) * vertical_scale],
-        sizemode="absolute", sizeref=0.08 * length, anchor="tip",
-        colorscale=[[0, "#f43f5e"], [1, "#f43f5e"]],
-        showscale=False, hoverinfo="skip", name="Tow vector",
+        sizemode="absolute", sizeref=0.07 * length, anchor="tip",
+        colorscale=[[0, "#ff3864"], [1, "#ff3864"]], showscale=False,
+        hoverinfo="skip", name="Tow vector",
     ))
 
-    flow_z = 0.03 * vertical_scale
+    spray_gain = float(np.clip((speed_kmh / 160.0) ** 0.5, 0.45, 1.25))
+    for side in (-1, 1):
+        for idx, frac in enumerate((0.72, 0.80, 0.88, 0.95)):
+            sx = max(0.04 * length, wet * frac)
+            hw = float(board_half_width(np.array([sx]), length, beam)[0])
+            sy = side * hw * (0.58 + 0.08 * idx)
+            xline = np.array([sx, 0.45 * sx, -0.04 * length, -0.18 * length * spray_gain])
+            yline = np.array([sy, side * 0.56 * beam, side * 0.70 * beam, side * (0.78 + 0.05 * idx) * beam])
+            zline_phys = np.array([max(bottom_z(sx, sy), 0.0), 0.018, 0.010, 0.003]) * spray_gain
+            fig.add_trace(go.Scatter3d(
+                x=xline, y=yline, z=zline_phys * vertical_scale, mode="lines",
+                line=dict(color="rgba(205,241,255,0.52)", width=max(2, 5 - idx)),
+                hoverinfo="skip", showlegend=(side == 1 and idx == 0),
+                name="Spray (schematic)",
+            ))
+
+    arrow_y = -0.72 * beam
+    arrow_z = 0.032 * vertical_scale
     fig.add_trace(go.Scatter3d(
-        x=[-0.08 * length, 0.12 * length], y=[-0.58 * beam] * 2, z=[flow_z] * 2,
-        mode="lines", line=dict(color="#38bdf8", width=6),
-        showlegend=False, hoverinfo="skip",
+        x=[-0.08 * length, 0.14 * length], y=[arrow_y, arrow_y], z=[arrow_z, arrow_z],
+        mode="lines", line=dict(color="#5cd7ff", width=6), showlegend=False, hoverinfo="skip",
     ))
     fig.add_trace(go.Cone(
-        x=[0.12 * length], y=[-0.58 * beam], z=[flow_z],
-        u=[1], v=[0], w=[0], sizemode="absolute", sizeref=0.07 * length, anchor="tip",
-        colorscale=[[0, "#38bdf8"], [1, "#38bdf8"]],
-        showscale=False, hovertemplate="Flow direction<extra></extra>",
+        x=[0.14 * length], y=[arrow_y], z=[arrow_z], u=[1], v=[0], w=[0],
+        sizemode="absolute", sizeref=0.06 * length, anchor="tip",
+        colorscale=[[0, "#5cd7ff"], [1, "#5cd7ff"]], showscale=False,
+        hovertemplate="Travel direction<extra></extra>",
     ))
 
-    zmax = max(float(np.nanmax(Ztop)), 0.20 * vertical_scale)
+    scale_label = f"×{vertical_scale:g}" if vertical_scale != 1.0 else "×1"
     fig.update_layout(
-        height=560, margin=dict(l=0, r=0, t=8, b=0),
+        height=610, margin=dict(l=0, r=0, t=8, b=0),
         legend=dict(orientation="h", yanchor="bottom", y=0.01, xanchor="center", x=0.5),
         scene=dict(
-            xaxis=dict(title="x from tail (m)", showbackground=False, gridcolor="rgba(128,128,128,.18)"),
-            yaxis=dict(title="beam (m)", showbackground=False, gridcolor="rgba(128,128,128,.18)"),
-            zaxis=dict(title="z (display scale)", showbackground=False, gridcolor="rgba(128,128,128,.18)", range=[-0.04 * vertical_scale, zmax * 1.25]),
-            aspectmode="manual", aspectratio=dict(x=2.8, y=1.0, z=0.75),
-            camera=dict(eye=dict(x=1.35, y=-1.55, z=0.85), center=dict(x=0.05, y=0, z=-0.08)),
+            xaxis=dict(title="x from tail (m)", showbackground=False, gridcolor="rgba(128,128,128,.16)"),
+            yaxis=dict(title="beam (m)", showbackground=False, gridcolor="rgba(128,128,128,.16)"),
+            zaxis=dict(title=f"vertical display {scale_label}", showbackground=False, gridcolor="rgba(128,128,128,.16)"),
+            aspectmode="data",
+            camera=dict(eye=dict(x=1.40, y=-1.50, z=0.82), center=dict(x=0.02, y=0, z=-0.04)),
         ),
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-        uirevision="speed-planing-3d",
+        uirevision=f"speed-planing-3d-{vertical_scale:g}",
     )
     return fig
 
@@ -323,15 +386,26 @@ st.subheader("3D running geometry")
 view_col, info_col = st.columns([2.5, 1])
 with view_col:
     L = max(1.72, 2.2 * lcg)
-    z_exaggerated = st.toggle("Vertical exaggeration ×4", value=True, help="Purely visual. Helps make trim, deadrise and rocker readable on a very thin high-speed board.")
+    option_a, option_b = st.columns(2)
+    with option_a:
+        z_exaggerated = st.toggle(
+            "Vertical exaggeration ×4", value=True,
+            help="Purely visual. The Plotly scene now preserves data aspect, so this genuinely stretches Z by 4×.",
+        )
+    with option_b:
+        stance_width = st.slider("Visual stance width (m)", 0.28, 0.58, 0.42, 0.01)
     zscale = 4.0 if z_exaggerated else 1.0
     fig3d = make_board_3d(
-        length=L, beam=beam, trim_deg=r["trim_deg"], beta_deg=beta,
-        wet_len=r["wetted_length_m"], lcg=lcg, lcp=r["lcp_m"],
-        tow_angle_deg=tow, vertical_scale=zscale,
+        length=L, beam=beam, speed_kmh=speed, trim_deg=r["trim_deg"], beta_deg=beta,
+        wet_len=r["wetted_length_m"], lcg=lcg, lcp=r["lcp_m"], tow_angle_deg=tow,
+        vertical_scale=zscale, stance_width=stance_width,
     )
     st.plotly_chart(fig3d, use_container_width=True, config={"displaylogo": False, "scrollZoom": True})
-    st.caption("Drag to orbit · wheel/pinch to zoom · orange = predicted wetted footprint · red = tow direction. Board planform/rocker is a visual design proxy, while trim, wetted length, CG and LCP come from the active analytical model.")
+    st.caption(
+        "Drag to orbit · wheel/pinch to zoom · orange = predicted wetted footprint · gold = binding/foot positions · "
+        "white-blue ribbons = schematic spray/wake · red = tow direction. The board shape, bindings and spray are visual proxies; "
+        "trim, wetted length, LCG and LCP come from the active analytical model."
+    )
 
 with info_col:
     st.markdown("#### Running state")
@@ -359,9 +433,11 @@ if smax > smin:
     for vv in np.linspace(smin, smax, n):
         try:
             rr = evaluate(**{**params, "speed_kmh": float(vv)})
-            rows.append({"Speed km/h": vv, "Tow N": rr["tow_force_n"], "Water N": rr["water_resistance_n"],
-                         "Aero N": rr["aero_drag_n"], "Trim deg": rr["trim_deg"], "Wet m": rr["wetted_length_m"],
-                         "Validity %": rr["validity_score"]})
+            rows.append({
+                "Speed km/h": vv, "Tow N": rr["tow_force_n"], "Water N": rr["water_resistance_n"],
+                "Aero N": rr["aero_drag_n"], "Trim deg": rr["trim_deg"], "Wet m": rr["wetted_length_m"],
+                "Validity %": rr["validity_score"],
+            })
         except Exception:
             pass
 if rows:
@@ -393,16 +469,25 @@ if st.button("Run design search"):
         for xx in np.linspace(xlo, xhi, grid):
             try:
                 rr = evaluate(**{**params, "beam": float(bb), "lcg": float(xx)})
-                out.append({"Beam m": bb, "LCG m": xx, "Tow N": rr["tow_force_n"],
-                            "Water N": rr["water_resistance_n"], "Trim deg": rr["trim_deg"],
-                            "Validity %": rr["validity_score"]})
+                out.append({
+                    "Beam m": bb, "LCG m": xx, "Tow N": rr["tow_force_n"],
+                    "Water N": rr["water_resistance_n"], "Trim deg": rr["trim_deg"],
+                    "Validity %": rr["validity_score"],
+                })
             except Exception:
                 pass
     if out:
         odf = pd.DataFrame(out).sort_values("Tow N")
         best = odf.iloc[0]
-        st.success(f"Best in this grid: beam {best['Beam m'] * 1000:.0f} mm · LCG {best['LCG m'] * 1000:.0f} mm · tow {best['Tow N']:.0f} N")
+        st.success(
+            f"Best in this grid: beam {best['Beam m'] * 1000:.0f} mm · "
+            f"LCG {best['LCG m'] * 1000:.0f} mm · tow {best['Tow N']:.0f} N"
+        )
         st.dataframe(odf.head(10), hide_index=True, use_container_width=True)
 
 st.divider()
-st.info("CFD integration point: the future surrogate should replace/calibrate the load and equilibrium evaluator while keeping this interface and validity reporting. Extreme 160 km/h results must not be treated as final safety predictions until CFD and dynamic-stability validation are complete.")
+st.info(
+    "CFD integration point: the future surrogate should replace/calibrate the load and equilibrium evaluator while keeping this "
+    "interface and validity reporting. Extreme 160 km/h results must not be treated as final safety predictions until CFD and "
+    "dynamic-stability validation are complete."
+)
