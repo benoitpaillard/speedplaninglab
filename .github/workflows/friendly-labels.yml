@@ -1,0 +1,97 @@
+name: Apply wakeboarder-friendly labels
+
+on:
+  push:
+    paths:
+      - .github/workflows/friendly-labels.yml
+
+permissions:
+  contents: write
+
+jobs:
+  relabel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rewrite user-facing labels
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('streamlit_app.py')
+          text = path.read_text()
+
+          replacements = {
+              '"0.6 ≤ FnB ≤ 13"': '"Speed/width planing number between 0.6 and 13"',
+              '"2° ≤ trim ≤ 15°"': '"Board running angle between 2° and 15°"',
+              '"λ ≤ 4"': '"Wetted length / board width ≤ 4"',
+              '"0.0338 ≤ CL ≤ 0.18"': '"Lift coefficient between 0.0338 and 0.18"',
+              '"0° ≤ deadrise ≤ 20°"': '"Bottom V angle between 0° and 20°"',
+              'text=["LCG", "LCP"]': 'text=["Center of gravity", "Center of water pressure"]',
+              'name="LCG / LCP"': 'name="Center of gravity / center of water pressure"',
+              '"Mass incl. equipment (kg)"': '"Rider + board mass (kg)"',
+              '"Beam (m)"': '"Maximum board width (m)"',
+              '"LCG from tail/stern (m)"': '"Center of gravity from tail (m)"',
+              '"Deadrise (deg)"': '"Bottom V angle (deg)"',
+              '"Tow angle relative to keel (deg)"': '"Tow line angle above board (deg)"',
+              '"Rider CdA (m²)"': '"Rider aerodynamic drag area (m²)"',
+              '"Tail width / max beam"': '"Tail width / maximum width"',
+              '"Max-beam position (% length from tail)"': '"Widest point position (% board length from tail)"',
+              '"Nose taper starts (% length from tail)"': '"Nose narrowing starts (% board length from tail)"',
+              '"Tip width / max beam"': '"Nose tip width / maximum width"',
+              '"Nose taper start automatically kept aft of max-beam station."': '"Nose narrowing start automatically kept behind the widest point."',
+              '"These controls change the actual 3D mesh. Beam and deadrise also enter "': '"These controls change the actual 3D board. Maximum width and bottom V angle also enter "',
+              '"LCG is at or beyond the board nose; increase length or move LCG aft."': '"The center of gravity is at or beyond the board nose; increase length or move the balance point toward the tail."',
+              'm1.metric("Trim"': 'm1.metric("Board running angle"',
+              'm4.metric("Wetted length"': 'm4.metric("Board length touching water"',
+              'm5.metric("FnB"': 'm5.metric("Speed / width planing number"',
+              'st.metric("Max beam"': 'st.metric("Maximum width"',
+              'st.metric("Predicted wetted area"': 'st.metric("Board area touching water"',
+              '"Wetted / board length"': '"Board length touching water"',
+              'st.metric("LCP from tail"': 'st.metric("Center of water pressure from tail"',
+              'st.metric("LCG from tail"': 'st.metric("Center of gravity from tail"',
+              'st.metric("Load coefficient CL"': 'st.metric("Lift coefficient"',
+              '"Currently coupled to analytical hydrodynamics: beam, deadrise, LCG and operating "': '"Currently used by the analytical model: maximum board width, bottom V angle, center of gravity and operating "',
+              '"Component": [\n                    "Friction",\n                    "Pressure/form",\n                    "Water total",\n                    "Rider aero",\n                    "Tow tension",\n                ]': '"Component": [\n                    "Water friction",\n                    "Planing pressure drag",\n                    "Total water drag",\n                    "Rider air drag",\n                    "Tow force",\n                ]',
+              'st.subheader("Beam × LCG design search")': 'st.subheader("Board width × balance point search")',
+              '"Beam min"': '"Board width min"',
+              '"Beam max"': '"Board width max"',
+              '"LCG min"': '"Center of gravity min distance from tail"',
+              '"LCG max"': '"Center of gravity max distance from tail"',
+              '"Beam m": bb': '"Board width (m)": bb',
+              '"LCG m": xx': '"Center of gravity from tail (m)": xx',
+              "best['Beam m']": "best['Board width (m)']",
+              "best['LCG m']": "best['Center of gravity from tail (m)']",
+              'f"Best in this grid: beam ': 'f"Best in this grid: board width ',
+              'f"LCG {best[\'Center of gravity from tail (m)\'] * 1000:.0f} mm · tow': 'f"center of gravity {best[\'Center of gravity from tail (m)\'] * 1000:.0f} mm from tail · tow',
+              '"Hydrodynamic resultant"': '"Water force"',
+              '"Rider aero drag"': '"Rider air drag"',
+              '"Tow direction"': '"Tow line"',
+              '"Tow vector"': '"Tow line"',
+              '"Travel direction"': '"Board travel direction"',
+              '"Hydrodynamic resultant ↖"': '"Water force ↖"',
+              '"Rider aero drag ←"': '"Rider air drag ←"',
+              '"Tow direction ↗"': '"Tow line force ↗"',
+              '"Travel direction →"': '"Board travel direction →"',
+          }
+
+          for old, new in replacements.items():
+              if old not in text:
+                  print(f'WARNING: not found: {old}')
+              text = text.replace(old, new)
+
+          path.write_text(text)
+          PY
+      - name: Check syntax
+        run: python -m py_compile streamlit_app.py
+      - name: Commit labels
+        run: |
+          if git diff --quiet; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add streamlit_app.py
+          git commit -m "Use wakeboarder-friendly terminology"
+          git push
