@@ -79,7 +79,7 @@ def screening(speed_kmh, mass, beam, lcg, beta, tow_angle, cda, rho_w, nu_w, rho
             tau = brentq(moment_residual, float(a), float(b))
             break
     if tau is None:
-        raise RuntimeError("No trim equilibrium in 0.12–8°")
+        raise RuntimeError("Could not find a stable board running angle between 0.12° and 8°")
 
     lam, wet_len, area, lcp, friction, pressure, water, horizontal, lift = state(tau)
     cl = lift / (q * beam * beam)
@@ -776,7 +776,7 @@ params = dict(
 try:
     r = evaluate(**params)
 except Exception as e:
-    st.error(f"Model solve failed: {e}")
+    st.error(f"Could not calculate this setup: {e}")
     st.stop()
 
 m1, m2, m3, m4, m5 = st.columns(5)
@@ -803,8 +803,7 @@ with st.expander("Model range details", expanded=score < 100):
         st.write(("✅ " if ok else "⚠️ ") + name)
     if HAVE_OPENPLANING:
         st.caption(
-            "OpenPlaning 0.4.8 is installed. The compact screening solver remains "
-            "active while the extreme-regime adapter is validated."
+            "OpenPlaning 0.4.8 is installed. The fast comparison model is active while the extreme-speed setup is validated."
         )
     else:
         st.caption(
