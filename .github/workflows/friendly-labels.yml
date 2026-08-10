@@ -13,54 +13,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Rewrite user-facing labels
+      - name: Rewrite remaining user-facing label
         run: |
           python - <<'PY'
           from pathlib import Path
-
           path = Path('streamlit_app.py')
           text = path.read_text()
-
-          replacements = {
-              'Interactive high-speed planing explorer · OpenPlaning-ready · CFD-ready': 'Interactive high-speed planing explorer · OpenPlaning model · high-fidelity simulation ready',
-              'Parametric board geometry': 'Board shape',
-              'Fluid / surface': 'Water and surface',
-              'Validity details': 'Model range details',
-              'Analytical correlation coordinates in displayed range · validity score': 'All main model inputs are within the usual range · model range score',
-              'Partly extrapolated analytical model · validity score': 'Some inputs are outside the usual model range · model range score',
-              'Strong analytical extrapolation · validity score': 'Several inputs are far outside the usual model range · model range score',
-              '— use for screening, not final design': '— use this only for early design comparisons',
-              'The compact screening solver remains active while the extreme-regime adapter is validated.': 'The fast comparison model remains active while the extreme-speed OpenPlaning setup is validated.',
-              'OpenPlaning package not available; compact Savitsky-family screening solver active.': 'OpenPlaning is not available on this deployment; the fast comparison model is active.',
-              'Model coupling': 'What changes the performance model?',
-              'CFD/surrogate model': 'high-fidelity simulation model',
-              'The CFD surrogate can consume all of them later.': 'The high-fidelity simulation model can use all of them later.',
-              'when the CFD surrogate is connected.': 'when the high-fidelity simulation model is connected.',
-              'CFD integration point: the future surrogate should replace/calibrate the load ': 'Future simulation integration: the high-fidelity model should replace/calibrate the load ',
-              'and equilibrium evaluator and accept the full parametric board geometry. ': 'and running-balance calculation and accept the full parametric board geometry. ',
-              'Extreme 160 km/h analytical results are screening estimates only.': 'Extreme 160 km/h analytical results are early design estimates only.',
-              '"Speed km/h": vv': '"Speed (km/h)": vv',
-              '"Tow N": rr["tow_force_n"]': '"Tow force (N)": rr["tow_force_n"]',
-              '"Water N": rr["water_resistance_n"]': '"Water drag (N)": rr["water_resistance_n"]',
-              '"Aero N": rr["aero_drag_n"]': '"Air drag (N)": rr["aero_drag_n"]',
-              '"Trim deg": rr["trim_deg"]': '"Board angle (deg)": rr["trim_deg"]',
-              '"Wet m": rr["wetted_length_m"]': '"Water contact length (m)": rr["wetted_length_m"]',
-              '"Validity %": rr["validity_score"]': '"Model range (%)": rr["validity_score"]',
-              'for col in ["Tow N", "Water N", "Aero N"]': 'for col in ["Tow force (N)", "Water drag (N)", "Air drag (N)"]',
-              'x=df["Speed km/h"]': 'x=df["Speed (km/h)"]',
-              '"Tow N": rr["tow_force_n"],\n                        "Water N": rr["water_resistance_n"],\n                        "Trim deg": rr["trim_deg"],\n                        "Validity %": rr["validity_score"],': '"Tow force (N)": rr["tow_force_n"],\n                        "Water drag (N)": rr["water_resistance_n"],\n                        "Board angle (deg)": rr["trim_deg"],\n                        "Model range (%)": rr["validity_score"],',
-              'pd.DataFrame(out).sort_values("Tow N")': 'pd.DataFrame(out).sort_values("Tow force (N)")',
-              "best['Tow N']": "best['Tow force (N)']",
-              '· tow {best[\'Tow force (N)\']:.0f} N': '· tow force {best[\'Tow force (N)\']:.0f} N',
-              '"Grid"': '"Number of steps"',
-              '"Run design search"': '"Find best width and balance point"',
-              'Small deterministic analytical search for exploration; the full geometry ': 'Simple search across board width and center of gravity; the full board shape ',
-              'parameter set becomes optimizable ': 'can be optimized ',
-          }
-
-          for old, new in replacements.items():
-              text = text.replace(old, new)
-
+          text = text.replace(
+              'OpenPlaning 0.4.8 is installed. The compact screening solver remains active while the extreme-regime adapter is validated.',
+              'OpenPlaning 0.4.8 is installed. The fast comparison model is active while the extreme-speed setup is validated.'
+          )
           path.write_text(text)
           PY
       - name: Check syntax
@@ -74,5 +36,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add streamlit_app.py
-          git commit -m "Finish wakeboarder-friendly terminology"
+          git commit -m "Clean rider-facing status text"
           git push
