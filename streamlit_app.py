@@ -984,7 +984,7 @@ if rows:
     )
 
 st.divider()
-st.subheader("Board width × balance point search")
+st.subheader("Simple width × balance point search")
 st.caption(
     "Simple search across board width and center of gravity; the full board shape "
     "can be optimized when the high-fidelity simulation model is connected."
@@ -1031,6 +1031,18 @@ if st.button("Find best width and balance point"):
             f"center of gravity {best['Center of gravity from tail (m)'] * 1000:.0f} mm from tail · tow force {best['Tow force (N)']:.0f} N"
         )
         st.dataframe(odf.head(10), hide_index=True, use_container_width=True)
+
+from smart_optimizer import render_smart_optimizer
+
+render_smart_optimizer(
+    evaluate=evaluate,
+    base_params=params,
+    board_length=length,
+    current_width=beam,
+    current_center_of_gravity=lcg,
+    current_bottom_v=beta,
+    current_tow_angle=tow,
+)
 
 st.divider()
 st.info(
