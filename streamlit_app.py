@@ -1,4 +1,5 @@
 import math
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
@@ -18,7 +19,7 @@ G = 9.81
 
 def savitsky_cl(lam, tau_deg, fn_b, beta_deg):
     cl0 = tau_deg**1.1 * (0.012 * lam**0.5 + 0.0055 * lam**2.5 / max(fn_b**2, 1e-9))
-    return cl0 - 0.0065 * beta_deg * max(cl0, 1e-12)**0.6
+    return cl0 - 0.0065 * beta_deg * max(cl0, 1e-12) ** 0.6
 
 
 def screening(speed_kmh, mass, beam, lcg, beta, tow_angle, cda, rho_w, nu_w, rho_air, rough_um):
@@ -107,8 +108,6 @@ def screening(speed_kmh, mass, beam, lcg, beta, tow_angle, cda, rho_w, nu_w, rho
 
 
 def evaluate(**p):
-    # OpenPlaning remains the target analytical engine. This screening model stays
-    # available as a robust baseline until the extreme-regime adapter is validated.
     return screening(**p)
 
 
@@ -118,7 +117,6 @@ def _smoothstep(t):
 
 
 def board_half_width(x, length, beam):
-    """Directional high-speed planform used only for visualisation."""
     u = np.asarray(x) / max(length, 1e-9)
     aft = 0.82 + 0.18 * np.sin(np.clip(u / 0.62, 0, 1) * np.pi / 2)
     nose_taper = 1.0 - 0.88 * _smoothstep((u - 0.62) / 0.38)
@@ -145,9 +143,6 @@ def make_board_3d(
     lcg,
     lcp,
     tow_angle_deg,
-    stance_width=0.42,
-    rear_yaw_deg=-10.0,
-    front_yaw_deg=12.0,
     view_name="Perspective",
     show_spray=True,
     show_forces=True,
@@ -159,7 +154,6 @@ def make_board_3d(
     nose_rocker=0.035,
     thickness=0.018,
 ):
-    """Orbitable true-scale engineering visualisation; shape/spray are visual proxies."""
     nx, ny = 84, 35
     xs = np.linspace(0.0, length, nx)
     yn = np.linspace(-1.0, 1.0, ny)
@@ -175,13 +169,8 @@ def make_board_3d(
         rs = np.clip((uv - 0.73) / 0.27, 0.0, 1.0)
         return nose_rocker * rs**2.2
 
-    # Place the board so the predicted forward wetted limit meets the undisturbed
-    # free surface on the centreline. This is a visual running-attitude convention.
     heave = -(wet * math.tan(tau) + float(rocker_phys(wet)))
-
-    intrinsic_rocker = rocker_phys(X)
-    deadrise = np.abs(Y) * math.tan(beta)
-    Zbottom = heave + X * math.tan(tau) + intrinsic_rocker + deadrise
+    Zbottom = heave + X * math.tan(tau) + rocker_phys(X) + np.abs(Y) * math.tan(beta)
     deck_crown = 0.004 * (1.0 - (Y / np.maximum(half[:, None], 1e-6)) ** 2)
     Ztop = Zbottom + thickness + deck_crown
 
@@ -195,7 +184,6 @@ def make_board_3d(
 
     fig = go.Figure()
 
-    # Water and a restrained wake patch.
     wx = np.linspace(-0.30 * length, 1.08 * length, 2)
     wy = np.linspace(-1.08 * beam, 1.08 * beam, 2)
     WX, WY = np.meshgrid(wx, wy)
@@ -211,7 +199,6 @@ def make_board_3d(
         hoverinfo="skip", name="Wake (schematic)",
     ))
 
-    # Hull surfaces.
     fig.add_trace(go.Surface(
         x=X, y=Y, z=Zbottom, surfacecolor=X,
         colorscale=[[0, "#0b141d"], [0.55, "#162733"], [1, "#2b4352"]],
@@ -231,7 +218,6 @@ def make_board_3d(
         name="Deck",
     ))
 
-    # Hard rails + luminous centreline improve the read of the board at true scale.
     for sgn in (-1, 1):
         rail_y = sgn * half
         rail_z = np.array([deck_z(float(xv), float(yv)) for xv, yv in zip(xs, rail_y)])
@@ -246,7 +232,6 @@ def make_board_3d(
         hoverinfo="skip", name="Deck centreline",
     ))
 
-    # Predicted contact footprint and its forward contact line.
     wet_mask = (X <= wet) & (Zbottom <= 0.005)
     Zw = np.where(wet_mask, Zbottom + 0.0014, np.nan)
     fig.add_trace(go.Surface(
@@ -265,48 +250,6 @@ def make_board_3d(
         name="Wet-front line",
     ))
 
-    # Binding/foot plates.
-    stance = min(max(stance_width, 0.26), 0.55 * length)
-    rear_x = float(np.clip(lcg - 0.50 * stance, 0.08 * length, 0.78 * length))
-    front_x = float(np.clip(lcg + 0.50 * stance, 0.14 * length, 0.86 * length))
-
-    def add_binding(xc, yaw_deg, label):
-        plate_l = min(0.23, 0.16 * length)
-        plate_w = min(0.105, 0.62 * beam)
-        yaw = math.radians(yaw_deg)
-        local = np.array([
-            [-plate_l / 2, -plate_w / 2], [plate_l / 2, -plate_w / 2],
-            [plate_l / 2, plate_w / 2], [-plate_l / 2, plate_w / 2],
-        ])
-        rot = np.array([[math.cos(yaw), -math.sin(yaw)], [math.sin(yaw), math.cos(yaw)]])
-        pts = local @ rot.T
-        bx = pts[:, 0] + xc
-        by = pts[:, 1]
-        bz = np.array([deck_z(float(px), float(py)) + 0.006 for px, py in zip(bx, by)])
-        fig.add_trace(go.Mesh3d(
-            x=bx, y=by, z=bz, i=[0, 0], j=[1, 2], k=[2, 3],
-            color="#d9a83e", opacity=0.98, flatshading=True,
-            hovertemplate=f"{label}<br>yaw={yaw_deg:+.0f}°<extra></extra>", name=label,
-        ))
-        closed = np.r_[0:4, 0]
-        fig.add_trace(go.Scatter3d(
-            x=bx[closed], y=by[closed], z=bz[closed], mode="lines",
-            line=dict(color="#493210", width=5), hoverinfo="skip", showlegend=False,
-        ))
-        # Simple boot/foot spine for better visual orientation.
-        spine = np.array([[-0.35 * plate_l, 0.0], [0.35 * plate_l, 0.0]]) @ rot.T
-        sx = spine[:, 0] + xc
-        sy = spine[:, 1]
-        sz = np.array([deck_z(float(px), float(py)) + 0.011 for px, py in zip(sx, sy)])
-        fig.add_trace(go.Scatter3d(
-            x=sx, y=sy, z=sz, mode="lines",
-            line=dict(color="#fff0b3", width=8), hoverinfo="skip", showlegend=False,
-        ))
-
-    add_binding(rear_x, rear_yaw_deg, "Rear binding")
-    add_binding(front_x, front_yaw_deg, "Front binding")
-
-    # Calculated longitudinal reference points.
     lcg_z = deck_z(lcg, 0.0) + 0.025
     lcp_z = bottom_z(lcp, 0.0) + 0.006
     fig.add_trace(go.Scatter3d(
@@ -317,7 +260,6 @@ def make_board_3d(
         hovertemplate="%{text}<br>x=%{x:.3f} m<extra></extra>",
     ))
 
-    # Tow line / handle direction.
     anchor_x = float(np.clip(lcg + 0.06 * length, 0.0, length))
     anchor_z = deck_z(anchor_x, 0.0) + 0.16
     tow_abs = math.radians(trim_deg + tow_angle_deg)
@@ -336,7 +278,6 @@ def make_board_3d(
         name="Tow vector",
     ))
 
-    # Spray is intentionally schematic, seeded from the wetted region only.
     if show_spray:
         spray_gain = float(np.clip((speed_kmh / 160.0) ** 0.5, 0.45, 1.25))
         for side in (-1, 1):
@@ -354,7 +295,6 @@ def make_board_3d(
                     name="Spray (schematic)",
                 ))
 
-    # Travel direction marker.
     arrow_y = -0.72 * beam
     arrow_z = 0.032
     fig.add_trace(go.Scatter3d(
@@ -368,8 +308,6 @@ def make_board_3d(
         hovertemplate="Travel direction<extra></extra>",
     ))
 
-    # Optional schematic force-resultant arrows. Directions/numeric labels come from
-    # the model; arrow lengths are deliberately normalized for legibility.
     if show_forces:
         fref = max(float(weight_n or 1.0), float(lift_n or 1.0), float(tow_force_n or 1.0), 1.0)
         base_len = min(0.18 * length, 0.30)
@@ -412,6 +350,15 @@ def make_board_3d(
         uirevision=f"speed-planing-3d-{view_name}",
     )
     return fig
+
+
+def swatch(color, label, value=None):
+    suffix = f" <b>{value}</b>" if value else ""
+    return (
+        f'<div style="display:flex;align-items:center;gap:.55rem;margin:.22rem 0;">'
+        f'<span style="width:16px;height:5px;border-radius:4px;background:{color};display:inline-block;"></span>'
+        f'<span>{label}{suffix}</span></div>'
+    )
 
 
 st.title("Speed Planing Lab")
@@ -476,10 +423,7 @@ with st.expander("Validity details", expanded=score < 100):
     for name, ok in r["checks"].items():
         st.write(("✅ " if ok else "⚠️ ") + name)
     if HAVE_OPENPLANING:
-        st.caption(
-            "OpenPlaning 0.4.8 is installed on this deployment. The compact screening solver is retained as a robust baseline "
-            "while the OpenPlaning adapter is validated against the extreme wakeboard regime."
-        )
+        st.caption("OpenPlaning 0.4.8 is installed. The compact screening solver remains active while the extreme-regime adapter is validated.")
     else:
         st.caption("OpenPlaning package not available; compact Savitsky-family screening solver active.")
 
@@ -495,15 +439,6 @@ with view_col:
     with c3:
         show_forces = st.toggle("Force vectors", value=True)
 
-    with st.expander("Stance visualisation", expanded=False):
-        sc1, sc2, sc3 = st.columns(3)
-        with sc1:
-            stance_width = st.slider("Stance width (m)", 0.28, 0.58, 0.42, 0.01)
-        with sc2:
-            rear_yaw = st.slider("Rear foot yaw (°)", -30.0, 20.0, -10.0, 1.0)
-        with sc3:
-            front_yaw = st.slider("Front foot yaw (°)", -10.0, 35.0, 12.0, 1.0)
-
     fig3d = make_board_3d(
         length=L,
         beam=beam,
@@ -514,9 +449,6 @@ with view_col:
         lcg=lcg,
         lcp=r["lcp_m"],
         tow_angle_deg=tow,
-        stance_width=stance_width,
-        rear_yaw_deg=rear_yaw,
-        front_yaw_deg=front_yaw,
         view_name=view_name,
         show_spray=show_spray,
         show_forces=show_forces,
@@ -526,18 +458,24 @@ with view_col:
         aero_drag_n=r["aero_drag_n"],
         tow_force_n=r["tow_force_n"],
     )
-    st.plotly_chart(
-        fig3d,
-        use_container_width=True,
-        config={"displaylogo": False, "scrollZoom": True},
-    )
+    st.plotly_chart(fig3d, use_container_width=True, config={"displaylogo": False, "scrollZoom": True})
     st.caption(
-        "True physical geometry scale — no vertical exaggeration. Drag to orbit · wheel/pinch to zoom. "
-        "Orange = predicted wetted footprint; pale yellow = wet-front line; gold = binding/foot positions; "
-        "white-blue = schematic spray; red = tow line. Force-arrow lengths are normalized for legibility, not geometric scale."
+        "True physical geometry scale. Orange = predicted wetted footprint; pale yellow = wet-front line; "
+        "white-blue = schematic spray. Force-arrow lengths are normalized for legibility, not geometric scale."
     )
 
 with info_col:
+    st.markdown("#### Arrow legend")
+    legend_html = ""
+    if show_forces:
+        legend_html += swatch("#ffd166", "Weight ↓", f"{r['weight_n']:.0f} N")
+        legend_html += swatch("#67f08a", "Hydrodynamic resultant ↖", f"lift {r['lift_n']:.0f} N")
+        legend_html += swatch("#b79cff", "Rider aero drag ←", f"{r['aero_drag_n']:.0f} N")
+    legend_html += swatch("#ff315f", "Tow direction ↗", f"{r['tow_force_n']:.0f} N")
+    legend_html += swatch("#5cddff", "Travel direction →")
+    st.markdown(legend_html, unsafe_allow_html=True)
+    st.caption("Arrow directions are physical/model-based. Force-arrow lengths are normalized so they remain visible in the 3D scene.")
+
     st.markdown("#### Running state")
     st.metric("Predicted wetted area", f"{r['wetted_area_m2']:.3f} m²")
     st.metric("Wetted / board length", f"{100 * min(r['wetted_length_m'] / L, 1.0):.1f}%")
@@ -546,7 +484,7 @@ with info_col:
     st.metric("Load coefficient CL", f"{r['cl']:.4f}")
 
     st.markdown("#### What is computed?")
-    st.caption("Computed: trim, wetted length/area, LCG, LCP, load and drag. Visual proxies: board outline/rocker, bindings and spray shape. Force-arrow directions/labels use computed loads; arrow lengths are normalized.")
+    st.caption("Computed: trim, wetted length/area, LCG, LCP, load and drag. Visual proxies: board outline/rocker and spray shape.")
 
     st.markdown("#### Load breakdown")
     st.dataframe(
