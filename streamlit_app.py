@@ -610,7 +610,7 @@ def swatch(color, label, value=None):
 
 
 st.title("Speed Planing Lab")
-st.caption("Interactive high-speed planing explorer · OpenPlaning-ready · CFD-ready")
+st.caption("Interactive high-speed planing explorer · OpenPlaning model · high-fidelity simulation ready")
 
 with st.sidebar:
     st.header("Operating point")
@@ -673,7 +673,7 @@ with st.sidebar:
     )
     cda = st.number_input("Rider aerodynamic drag area (m²)", 0.0, 3.0, defaults["cda"], 0.01)
 
-    with st.expander("Parametric board geometry", expanded=True):
+    with st.expander("Board shape", expanded=True):
         length = st.slider("Board length (m)", 1.20, 5.50, defaults["length"], 0.02)
         tail_width_ratio = st.slider(
             "Tail width / maximum width", 0.45, 1.00, defaults["tail_ratio"], 0.01
@@ -748,12 +748,12 @@ with st.sidebar:
         st.caption(
             "These controls change the actual 3D board. Maximum width and bottom V angle also enter "
             "the analytical solver; the other shape variables become hydrodynamic "
-            "design variables once the CFD/surrogate model is connected."
+            "design variables once the high-fidelity simulation model is connected."
         )
         if lcg >= length:
             st.warning("The center of gravity is at or beyond the board nose; increase length or move the balance point toward the tail.")
 
-    with st.expander("Fluid / surface"):
+    with st.expander("Water and surface"):
         rho_w = st.number_input("Water density (kg/m³)", 900.0, 1100.0, 1000.0, 1.0)
         nu_w = st.number_input("Water ν (m²/s)", value=1.0e-6, format="%.2e")
         rho_air = st.number_input("Air density (kg/m³)", 0.5, 2.0, 1.225, 0.01)
@@ -789,16 +789,16 @@ m5.metric("Speed / width planing number", f"{r['fn_b']:.1f}")
 score = r["validity_score"]
 if score == 100:
     st.success(
-        f"Analytical correlation coordinates in displayed range · validity score {score}%"
+        f"All main model inputs are within the usual range · model range score {score}%"
     )
 elif score >= 60:
-    st.warning(f"Partly extrapolated analytical model · validity score {score}%")
+    st.warning(f"Some inputs are outside the usual model range · model range score {score}%")
 else:
     st.error(
-        f"Strong analytical extrapolation · validity score {score}% — use for screening, not final design"
+        f"Several inputs are far outside the usual model range · model range score {score}% — use this only for early design comparisons"
     )
 
-with st.expander("Validity details", expanded=score < 100):
+with st.expander("Model range details", expanded=score < 100):
     for name, ok in r["checks"].items():
         st.write(("✅ " if ok else "⚠️ ") + name)
     if HAVE_OPENPLANING:
@@ -808,7 +808,7 @@ with st.expander("Validity details", expanded=score < 100):
         )
     else:
         st.caption(
-            "OpenPlaning package not available; compact Savitsky-family screening solver active."
+            "OpenPlaning is not available on this deployment; the fast comparison model is active."
         )
 
 st.subheader("3D running geometry")
@@ -895,11 +895,11 @@ with info_col:
     st.metric("Center of gravity from tail", f"{lcg * 1000:.0f} mm")
     st.metric("Lift coefficient", f"{r['cl']:.4f}")
 
-    st.markdown("#### Model coupling")
+    st.markdown("#### What changes the performance model?")
     st.caption(
         "Currently used by the analytical model: maximum board width, bottom V angle, center of gravity and operating "
         "point. Geometry-only for now: length, tail/tip widths, taper stations, rocker, "
-        "thickness and deck crown. The CFD surrogate can consume all of them later."
+        "thickness and deck crown. The high-fidelity simulation model can use all of them later."
     )
 
     st.markdown("#### Load breakdown")
@@ -947,13 +947,13 @@ if smax > smin:
             rr = evaluate(**{**params, "speed_kmh": float(vv)})
             rows.append(
                 {
-                    "Speed km/h": vv,
-                    "Tow N": rr["tow_force_n"],
-                    "Water N": rr["water_resistance_n"],
-                    "Aero N": rr["aero_drag_n"],
-                    "Trim deg": rr["trim_deg"],
-                    "Wet m": rr["wetted_length_m"],
-                    "Validity %": rr["validity_score"],
+                    "Speed (km/h)": vv,
+                    "Tow force (N)": rr["tow_force_n"],
+                    "Water drag (N)": rr["water_resistance_n"],
+                    "Air drag (N)": rr["aero_drag_n"],
+                    "Board angle (deg)": rr["trim_deg"],
+                    "Water contact length (m)": rr["wetted_length_m"],
+                    "Model range (%)": rr["validity_score"],
                 }
             )
         except Exception:
@@ -962,10 +962,10 @@ if smax > smin:
 if rows:
     df = pd.DataFrame(rows)
     f = go.Figure()
-    for col in ["Tow N", "Water N", "Aero N"]:
+    for col in ["Tow force (N)", "Water drag (N)", "Air drag (N)"]:
         f.add_trace(
             go.Scatter(
-                x=df["Speed km/h"],
+                x=df["Speed (km/h)"],
                 y=df[col],
                 mode="lines+markers",
                 name=col,
@@ -987,8 +987,8 @@ if rows:
 st.divider()
 st.subheader("Board width × balance point search")
 st.caption(
-    "Small deterministic analytical search for exploration; the full geometry "
-    "parameter set becomes optimizable when the CFD surrogate is connected."
+    "Simple search across board width and center of gravity; the full board shape "
+    "can be optimized when the high-fidelity simulation model is connected."
 )
 b1, b2, x1, x2, gn = st.columns(5)
 with b1:
@@ -1004,9 +1004,9 @@ with x1:
 with x2:
     xhi = st.number_input("Center of gravity max distance from tail", 0.03, 3.0, lcg * 1.2, 0.01)
 with gn:
-    grid = st.slider("Grid", 3, 9, 5)
+    grid = st.slider("Number of steps", 3, 9, 5)
 
-if st.button("Run design search"):
+if st.button("Find best width and balance point"):
     out = []
     for bb in np.linspace(blo, bhi, grid):
         for xx in np.linspace(xlo, xhi, grid):
@@ -1016,26 +1016,26 @@ if st.button("Run design search"):
                     {
                         "Board width (m)": bb,
                         "Center of gravity from tail (m)": xx,
-                        "Tow N": rr["tow_force_n"],
-                        "Water N": rr["water_resistance_n"],
-                        "Trim deg": rr["trim_deg"],
-                        "Validity %": rr["validity_score"],
+                        "Tow force (N)": rr["tow_force_n"],
+                        "Water drag (N)": rr["water_resistance_n"],
+                        "Board angle (deg)": rr["trim_deg"],
+                        "Model range (%)": rr["validity_score"],
                     }
                 )
             except Exception:
                 pass
     if out:
-        odf = pd.DataFrame(out).sort_values("Tow N")
+        odf = pd.DataFrame(out).sort_values("Tow force (N)")
         best = odf.iloc[0]
         st.success(
             f"Best in this grid: board width {best['Board width (m)'] * 1000:.0f} mm · "
-            f"center of gravity {best['Center of gravity from tail (m)'] * 1000:.0f} mm from tail · tow {best['Tow N']:.0f} N"
+            f"center of gravity {best['Center of gravity from tail (m)'] * 1000:.0f} mm from tail · tow force {best['Tow force (N)']:.0f} N"
         )
         st.dataframe(odf.head(10), hide_index=True, use_container_width=True)
 
 st.divider()
 st.info(
-    "CFD integration point: the future surrogate should replace/calibrate the load "
-    "and equilibrium evaluator and accept the full parametric board geometry. "
-    "Extreme 160 km/h analytical results are screening estimates only."
+    "Future simulation integration: the high-fidelity model should replace/calibrate the load "
+    "and running-balance calculation and accept the full parametric board geometry. "
+    "Extreme 160 km/h analytical results are early design estimates only."
 )
