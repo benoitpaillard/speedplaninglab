@@ -85,11 +85,11 @@ def screening(speed_kmh, mass, beam, lcg, beta, tow_angle, cda, rho_w, nu_w, rho
     cl = lift / (q * beam * beam)
     tension = horizontal / max(math.cos(tow_rad), 1e-6)
     checks = {
-        "0.6 ≤ FnB ≤ 13": 0.6 <= fn_b <= 13,
-        "2° ≤ trim ≤ 15°": 2 <= tau <= 15,
-        "λ ≤ 4": lam <= 4,
-        "0.0338 ≤ CL ≤ 0.18": 0.0338 <= cl <= 0.18,
-        "0° ≤ deadrise ≤ 20°": 0 <= beta <= 20,
+        "Speed/width planing number between 0.6 and 13": 0.6 <= fn_b <= 13,
+        "Board running angle between 2° and 15°": 2 <= tau <= 15,
+        "Wetted length / board width ≤ 4": lam <= 4,
+        "Lift coefficient between 0.0338 and 0.18": 0.0338 <= cl <= 0.18,
+        "Bottom V angle between 0° and 20°": 0 <= beta <= 20,
     }
     score = int(round(100 * sum(checks.values()) / len(checks)))
     return {
@@ -403,7 +403,7 @@ def make_board_3d(
             y=[0, 0],
             z=[lcg_z, lcp_z],
             mode="markers+text",
-            text=["LCG", "LCP"],
+            text=["Center of gravity", "Center of water pressure"],
             textposition="top center",
             marker=dict(
                 size=[8, 8],
@@ -411,7 +411,7 @@ def make_board_3d(
                 line=dict(width=1, color="#071018"),
             ),
             textfont=dict(size=12),
-            name="LCG / LCP",
+            name="Center of gravity / center of water pressure",
             hovertemplate="%{text}<br>x=%{x:.3f} m<extra></extra>",
         )
     )
@@ -430,7 +430,7 @@ def make_board_3d(
             z=[anchor_z, tz],
             mode="lines",
             line=dict(color="#ff315f", width=7),
-            name="Tow direction",
+            name="Tow line",
             hoverinfo="skip",
         )
     )
@@ -452,7 +452,7 @@ def make_board_3d(
                 if tow_force_n
                 else "Tow direction<extra></extra>"
             ),
-            name="Tow vector",
+            name="Tow line",
         )
     )
 
@@ -549,7 +549,7 @@ def make_board_3d(
             0,
             1,
             lift_n,
-            "Hydrodynamic resultant",
+            "Water force",
             "#67f08a",
         )
         add_force_arrow(
@@ -560,7 +560,7 @@ def make_board_3d(
             0,
             0,
             aero_drag_n,
-            "Rider aero drag",
+            "Rider air drag",
             "#b79cff",
         )
 
@@ -661,32 +661,32 @@ with st.sidebar:
 
     speed = st.slider("Speed (km/h)", 20.0, 220.0, defaults["speed"], 2.0)
     mass = st.number_input(
-        "Mass incl. equipment (kg)", 10.0, 10000.0, defaults["mass"], 1.0
+        "Rider + board mass (kg)", 10.0, 10000.0, defaults["mass"], 1.0
     )
-    beam = st.number_input("Beam (m)", 0.08, 10.0, defaults["beam"], 0.01)
+    beam = st.number_input("Maximum board width (m)", 0.08, 10.0, defaults["beam"], 0.01)
     lcg = st.number_input(
-        "LCG from tail/stern (m)", 0.02, 10.0, defaults["lcg"], 0.01
+        "Center of gravity from tail (m)", 0.02, 10.0, defaults["lcg"], 0.01
     )
-    beta = st.slider("Deadrise (deg)", 0.0, 30.0, defaults["beta"], 0.5)
+    beta = st.slider("Bottom V angle (deg)", 0.0, 30.0, defaults["beta"], 0.5)
     tow = st.slider(
-        "Tow angle relative to keel (deg)", -10.0, 25.0, defaults["tow"], 0.5
+        "Tow line angle above board (deg)", -10.0, 25.0, defaults["tow"], 0.5
     )
-    cda = st.number_input("Rider CdA (m²)", 0.0, 3.0, defaults["cda"], 0.01)
+    cda = st.number_input("Rider aerodynamic drag area (m²)", 0.0, 3.0, defaults["cda"], 0.01)
 
     with st.expander("Parametric board geometry", expanded=True):
         length = st.slider("Board length (m)", 1.20, 5.50, defaults["length"], 0.02)
         tail_width_ratio = st.slider(
-            "Tail width / max beam", 0.45, 1.00, defaults["tail_ratio"], 0.01
+            "Tail width / maximum width", 0.45, 1.00, defaults["tail_ratio"], 0.01
         )
         max_beam_pos = st.slider(
-            "Max-beam position (% length from tail)",
+            "Widest point position (% board length from tail)",
             15,
             65,
             int(round(defaults["max_beam_pos"] * 100)),
             1,
         ) / 100.0
         taper_start = st.slider(
-            "Nose taper starts (% length from tail)",
+            "Nose narrowing starts (% board length from tail)",
             50,
             90,
             int(round(defaults["taper_start"] * 100)),
@@ -694,9 +694,9 @@ with st.sidebar:
         ) / 100.0
         if taper_start <= max_beam_pos + 0.03:
             taper_start = min(max_beam_pos + 0.03, 0.97)
-            st.caption("Nose taper start automatically kept aft of max-beam station.")
+            st.caption("Nose narrowing start automatically kept behind the widest point.")
         tip_width_ratio = st.slider(
-            "Tip width / max beam", 0.03, 0.45, defaults["tip_ratio"], 0.01
+            "Nose tip width / maximum width", 0.03, 0.45, defaults["tip_ratio"], 0.01
         )
         nose_rocker = (
             st.slider(
@@ -746,12 +746,12 @@ with st.sidebar:
             / 1000.0
         )
         st.caption(
-            "These controls change the actual 3D mesh. Beam and deadrise also enter "
+            "These controls change the actual 3D board. Maximum width and bottom V angle also enter "
             "the analytical solver; the other shape variables become hydrodynamic "
             "design variables once the CFD/surrogate model is connected."
         )
         if lcg >= length:
-            st.warning("LCG is at or beyond the board nose; increase length or move LCG aft.")
+            st.warning("The center of gravity is at or beyond the board nose; increase length or move the balance point toward the tail.")
 
     with st.expander("Fluid / surface"):
         rho_w = st.number_input("Water density (kg/m³)", 900.0, 1100.0, 1000.0, 1.0)
@@ -780,11 +780,11 @@ except Exception as e:
     st.stop()
 
 m1, m2, m3, m4, m5 = st.columns(5)
-m1.metric("Trim", f"{r['trim_deg']:.2f}°")
+m1.metric("Board running angle", f"{r['trim_deg']:.2f}°")
 m2.metric("Tow force", f"{r['tow_force_n'] / 1000:.2f} kN")
 m3.metric("Water drag", f"{r['water_resistance_n']:.0f} N")
-m4.metric("Wetted length", f"{r['wetted_length_m'] * 1000:.0f} mm")
-m5.metric("FnB", f"{r['fn_b']:.1f}")
+m4.metric("Board length touching water", f"{r['wetted_length_m'] * 1000:.0f} mm")
+m5.metric("Speed / width planing number", f"{r['fn_b']:.1f}")
 
 score = r["validity_score"]
 if score == 100:
@@ -865,13 +865,13 @@ with info_col:
     if show_forces:
         legend_html += swatch("#ffd166", "Weight ↓", f"{r['weight_n']:.0f} N")
         legend_html += swatch(
-            "#67f08a", "Hydrodynamic resultant ↖", f"lift {r['lift_n']:.0f} N"
+            "#67f08a", "Water force ↖", f"lift {r['lift_n']:.0f} N"
         )
         legend_html += swatch(
-            "#b79cff", "Rider aero drag ←", f"{r['aero_drag_n']:.0f} N"
+            "#b79cff", "Rider air drag ←", f"{r['aero_drag_n']:.0f} N"
         )
-    legend_html += swatch("#ff315f", "Tow direction ↗", f"{r['tow_force_n']:.0f} N")
-    legend_html += swatch("#5cddff", "Travel direction →")
+    legend_html += swatch("#ff315f", "Tow line force ↗", f"{r['tow_force_n']:.0f} N")
+    legend_html += swatch("#5cddff", "Board travel direction →")
     st.markdown(legend_html, unsafe_allow_html=True)
     st.caption(
         "Arrow directions are physical/model-based. Force-arrow lengths are normalized "
@@ -880,24 +880,24 @@ with info_col:
 
     st.markdown("#### Geometry")
     st.metric("Board length", f"{length:.2f} m")
-    st.metric("Max beam", f"{beam * 1000:.0f} mm")
+    st.metric("Maximum width", f"{beam * 1000:.0f} mm")
     st.metric("Tail width", f"{beam * tail_width_ratio * 1000:.0f} mm")
     st.metric("Tip width", f"{beam * tip_width_ratio * 1000:.0f} mm")
     st.metric("Nose rocker", f"{nose_rocker * 1000:.0f} mm")
 
     st.markdown("#### Running state")
-    st.metric("Predicted wetted area", f"{r['wetted_area_m2']:.3f} m²")
+    st.metric("Board area touching water", f"{r['wetted_area_m2']:.3f} m²")
     st.metric(
-        "Wetted / board length",
+        "Board length touching water",
         f"{100 * min(r['wetted_length_m'] / length, 1.0):.1f}%",
     )
-    st.metric("LCP from tail", f"{r['lcp_m'] * 1000:.0f} mm")
-    st.metric("LCG from tail", f"{lcg * 1000:.0f} mm")
-    st.metric("Load coefficient CL", f"{r['cl']:.4f}")
+    st.metric("Center of water pressure from tail", f"{r['lcp_m'] * 1000:.0f} mm")
+    st.metric("Center of gravity from tail", f"{lcg * 1000:.0f} mm")
+    st.metric("Lift coefficient", f"{r['cl']:.4f}")
 
     st.markdown("#### Model coupling")
     st.caption(
-        "Currently coupled to analytical hydrodynamics: beam, deadrise, LCG and operating "
+        "Currently used by the analytical model: maximum board width, bottom V angle, center of gravity and operating "
         "point. Geometry-only for now: length, tail/tip widths, taper stations, rocker, "
         "thickness and deck crown. The CFD surrogate can consume all of them later."
     )
@@ -907,11 +907,11 @@ with info_col:
         pd.DataFrame(
             {
                 "Component": [
-                    "Friction",
-                    "Pressure/form",
-                    "Water total",
-                    "Rider aero",
-                    "Tow tension",
+                    "Water friction",
+                    "Planing pressure drag",
+                    "Total water drag",
+                    "Rider air drag",
+                    "Tow force",
                 ],
                 "Force (N)": [
                     r["friction_n"],
@@ -985,7 +985,7 @@ if rows:
     )
 
 st.divider()
-st.subheader("Beam × LCG design search")
+st.subheader("Board width × balance point search")
 st.caption(
     "Small deterministic analytical search for exploration; the full geometry "
     "parameter set becomes optimizable when the CFD surrogate is connected."
@@ -993,16 +993,16 @@ st.caption(
 b1, b2, x1, x2, gn = st.columns(5)
 with b1:
     blo = st.number_input(
-        "Beam min", 0.08, 2.0, max(0.08, beam * 0.85), 0.01
+        "Board width min", 0.08, 2.0, max(0.08, beam * 0.85), 0.01
     )
 with b2:
-    bhi = st.number_input("Beam max", 0.09, 2.0, beam * 1.15, 0.01)
+    bhi = st.number_input("Board width max", 0.09, 2.0, beam * 1.15, 0.01)
 with x1:
     xlo = st.number_input(
-        "LCG min", 0.02, 3.0, max(0.02, lcg * 0.8), 0.01
+        "Center of gravity min distance from tail", 0.02, 3.0, max(0.02, lcg * 0.8), 0.01
     )
 with x2:
-    xhi = st.number_input("LCG max", 0.03, 3.0, lcg * 1.2, 0.01)
+    xhi = st.number_input("Center of gravity max distance from tail", 0.03, 3.0, lcg * 1.2, 0.01)
 with gn:
     grid = st.slider("Grid", 3, 9, 5)
 
@@ -1014,8 +1014,8 @@ if st.button("Run design search"):
                 rr = evaluate(**{**params, "beam": float(bb), "lcg": float(xx)})
                 out.append(
                     {
-                        "Beam m": bb,
-                        "LCG m": xx,
+                        "Board width (m)": bb,
+                        "Center of gravity from tail (m)": xx,
                         "Tow N": rr["tow_force_n"],
                         "Water N": rr["water_resistance_n"],
                         "Trim deg": rr["trim_deg"],
@@ -1028,8 +1028,8 @@ if st.button("Run design search"):
         odf = pd.DataFrame(out).sort_values("Tow N")
         best = odf.iloc[0]
         st.success(
-            f"Best in this grid: beam {best['Beam m'] * 1000:.0f} mm · "
-            f"LCG {best['LCG m'] * 1000:.0f} mm · tow {best['Tow N']:.0f} N"
+            f"Best in this grid: board width {best['Board width (m)'] * 1000:.0f} mm · "
+            f"center of gravity {best['Center of gravity from tail (m)'] * 1000:.0f} mm from tail · tow {best['Tow N']:.0f} N"
         )
         st.dataframe(odf.head(10), hide_index=True, use_container_width=True)
 
