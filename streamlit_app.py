@@ -819,6 +819,18 @@ render_experimental_benchmarks(
     running_angle_deg=r["trim_deg"],
 )
 
+from tn2981_digitized import render_tn2981_digitized
+
+render_tn2981_digitized(
+    speed_kmh=speed,
+    width_m=beam,
+    running_angle_deg=r["trim_deg"],
+    current_clb=r["cl"],
+    current_water_drag_n=r["water_resistance_n"],
+    current_wetted_length_m=r["wetted_length_m"],
+    water_density=rho_w,
+)
+
 st.subheader("3D running geometry")
 view_col, info_col = st.columns([2.55, 1])
 with view_col:
