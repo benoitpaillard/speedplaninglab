@@ -104,10 +104,10 @@ def _pareto_mask(tow_force, wet_fraction):
 def render_smart_optimizer(*, evaluate, base_params, board_length, current_width,
                            current_center_of_gravity, current_bottom_v, current_tow_angle):
     st.divider()
-    st.subheader("Smart board setup optimizer")
+    st.subheader("Legacy fast-model optimizer (secondary)")
     st.caption(
-        "Automatically searches board width, balance point, bottom V and tow-line angle. "
-        "It uses the same fast performance model as the dashboard, so the 160 km/h result is still an early-design estimate."
+        "Searches the legacy fast model only. At record speed it is a trend explorer, not the V1 design authority; "
+        "the published-experiment synthesis above takes precedence because the pitch closure is incomplete."
     )
 
     try:
@@ -137,6 +137,8 @@ def render_smart_optimizer(*, evaluate, base_params, board_length, current_width
         )
 
     current_speed = float(base_params["speed_kmh"])
+    if current_speed >= 100.0:
+        st.warning("Do not use its optimum as the record-board geometry. The high-speed V1 above is anchored to published flat-plate evidence; this optimizer still uses the incomplete legacy pitch equilibrium.")
     if scenario_mode == "Speed range":
         s1, s2, s3 = st.columns(3)
         with s1:
@@ -253,7 +255,7 @@ def render_smart_optimizer(*, evaluate, base_params, board_length, current_width
                 "Minimum board angle (deg)",
                 0.0,
                 10.0,
-                0.35 if high_speed else 1.5,
+                2.0 if high_speed else 1.5,
                 0.1,
                 key="smart_opt_angle_min",
             )

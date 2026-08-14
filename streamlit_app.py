@@ -610,7 +610,7 @@ def swatch(color, label, value=None):
 
 
 st.title("Speed Planing Lab")
-st.caption("Interactive high-speed planing explorer · OpenPlaning model · high-fidelity simulation ready")
+st.caption("Published-experiment synthesis · evidence-driven record board · legacy fast model for secondary trend checks")
 
 with st.sidebar:
     st.header("Operating point")
@@ -622,18 +622,18 @@ with st.sidebar:
         defaults = dict(
             speed=160.0,
             mass=90.0,
-            beam=0.28,
+            beam=0.295,
             lcg=0.25,
             beta=0.0,
             tow=5.0,
             cda=0.32,
             length=1.55,
-            tail_ratio=0.82,
-            max_beam_pos=0.42,
-            taper_start=0.68,
-            tip_ratio=0.12,
+            tail_ratio=0.93,
+            max_beam_pos=0.18,
+            taper_start=0.61,
+            tip_ratio=0.17,
             nose_rocker=0.035,
-            rocker_start=0.73,
+            rocker_start=0.71,
             tail_rocker=0.0,
             thickness=0.018,
             crown=0.004,
@@ -663,10 +663,11 @@ with st.sidebar:
     mass = st.number_input(
         "Rider + board mass (kg)", 10.0, 10000.0, defaults["mass"], 1.0
     )
-    beam = st.number_input("Maximum board width (m)", 0.08, 10.0, defaults["beam"], 0.01)
+    beam = st.number_input("Maximum board width (m)", 0.08, 10.0, defaults["beam"], 0.005)
     lcg = st.number_input(
-        "Center of gravity from tail (m)", 0.02, 10.0, defaults["lcg"], 0.01
+        "Legacy fast-model balance point from tail (m)", 0.02, 10.0, defaults["lcg"], 0.01
     )
+    st.caption("At record speed this is only the legacy model closure variable — not a recommended physical binding or rider-CG position.")
     beta = st.slider("Bottom V angle (deg)", 0.0, 30.0, defaults["beta"], 0.5)
     tow = st.slider(
         "Tow line angle above board (deg)", -10.0, 25.0, defaults["tow"], 0.5
@@ -778,6 +779,19 @@ try:
 except Exception as e:
     st.error(f"Could not calculate this setup: {e}")
     st.stop()
+
+from record_board_design import render_record_board_design
+
+render_record_board_design(
+    speed_kmh=speed,
+    mass_kg=mass,
+    rho_w=rho_w,
+    nu_w=nu_w,
+)
+
+st.divider()
+st.subheader("Legacy fast-model estimate")
+st.caption("Useful for trend comparison only at record speed. Its pitch closure does not include the full rider/tow-handle moment balance.")
 
 m1, m2, m3, m4, m5 = st.columns(5)
 m1.metric("Board running angle", f"{r['trim_deg']:.2f}°")
