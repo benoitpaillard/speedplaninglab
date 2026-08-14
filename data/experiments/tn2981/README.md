@@ -1,39 +1,38 @@
-# NACA TN-2981 digitized data
+# NACA TN-2981 experimental source notes
 
 Source: Irving Weinstein and Walter J. Kapryan, **The High-speed Planing Characteristics of a Rectangular Flat Plate over a Wide Range of Trim and Wetted Length**, NACA TN-2981, 1953. NASA NTRS document 19930083703.
 
 Official record: https://ntrs.nasa.gov/citations/19930083703
 
-## What is digitized
+## Current status
 
-`table_i_trim_2deg.csv` is the first design-relevant slice transcribed from **Table I, experimental planing data**, for the 2 degree trim condition. This is intentionally the first slice because the record wakeboard currently predicts a running angle below 2 degrees, making 2 degrees the nearest directly measured trim in TN-2981.
+The original report is a primary experimental source for high-speed rectangular flat-plate planing. It remains a key validation source for SpeedPlaningLab.
 
-The primary transcribed quantities are:
+The scan/OCR of Table I does **not** preserve all row/trim grouping cleanly enough to justify treating the extracted rows as a verified 2-degree dataset. The earlier `table_i_trim_2deg.csv` file has therefore been retired.
 
-- `CA`: beam loading / load coefficient used by the report
-- `Cv`: speed coefficient (beam-based Froude number)
-- `CR`: resistance coefficient used by the report
-- `lm_over_b`: mean wetted length divided by beam
+`table_i_ocr_provisional.csv` preserves the useful numerical transcription for provenance and later manual verification, but it is explicitly **not used by the live dashboard or optimizer**. Its trim grouping must be checked against the original page image before any row is promoted to verified experimental data.
 
-The following columns are **recomputed from the report definitions**, rather than re-OCRed, to reduce transcription error:
+## Live experiment-driven reference
 
-- `CLb = 2 * CA / Cv^2`
-- `CDb = 2 * CR / Cv^2`
-- `CLS = CLb / (lm/b)`
-- `CDS = CDb / (lm/b)`
+The live dashboard now uses `published_flatplate_reference.py` instead of the provisional OCR table. That module keeps the evidence hierarchy explicit:
 
-Rows marked `2a` reproduce the report's footnote-a test condition (alternate average kinematic viscosity). They remain part of the 2 degree trim dataset and are explicitly flagged.
+1. TN-2981: primary high-speed flat-plate experiments and the closest classical experimental envelope to the record-board problem.
+2. Shuford NACA flat-plate theory/correlation: developed and checked against broad flat-plate planing experiments.
+3. P. Ward Brown, Davidson Laboratory SIT-DL-71-1463: systematic controlled planing-surface experiments and the adopted Shuford-Brown lift, drag, and Schoenherr-friction formulation.
+4. Christopher, NACA TN-3951: independent flat-plate lift measurements at speeds up to 170 ft/s (about 187 km/h), spanning the record-board target speed.
 
-## Why center of pressure and draft are not in this first CSV
+The live reference solves wetted length from the published lift relation for a selected running angle, then evaluates pressure/induced drag plus Schoenherr skin friction. The dashboard displays the 2–10 degree experiment-backed range and clearly flags any prediction below 2 degrees as extrapolation.
 
-The indexed/OCR text for the center-of-pressure and draft columns is substantially less reliable than the load/speed/resistance/wetted-length columns. Rather than silently guess values, they are being added only when they can be verified confidently against the original table/figures. The report states that the center-of-pressure to wetted-length ratio is approximately 0.71 through 9 degrees trim, but this relationship is not substituted for measured table values here.
+## Center of pressure
 
-## Measurement uncertainty stated in TN-2981
+TN-2981 reports an approximately constant center-of-pressure / mean-wetted-length relationship near 0.71 through the lower-trim range. This is retained as published context, but it is **not silently substituted for unreadable Table I cells** and is not used to repair the current rider/tow equilibrium model.
 
-The report states approximate measurement accuracies of ±0.15 lb load, ±0.15 lb resistance, ±0.50 ft-lb trimming moment, ±0.25 in wetted length, ±0.05 in draft, ±0.10 degree trim, and ±0.20 ft/s speed.
+## Measurement uncertainty
 
-TN-2981 also cautions that mean-wetted-length/beam values below 0.5 have marginal wetted-area measurement accuracy. SpeedPlaningLab should surface this warning when using such rows.
+TN-2981 states approximate measurement accuracies of ±0.15 lb load, ±0.15 lb resistance, ±0.50 ft-lb trimming moment, ±0.25 in wetted length, ±0.05 in draft, ±0.10 degree trim, and ±0.20 ft/s speed.
 
-## Digitization policy
+TN-2981 also cautions that mean-wetted-length / beam values below 0.5 have marginal wetted-area measurement accuracy.
 
-The original NASA report is a US Government work and the NTRS record marks it public-use permitted. Every digitized row must remain traceable to the report. Ambiguous OCR is left blank or omitted rather than inferred. Derived values must be reproducible from documented formulas.
+## Data-integrity policy
+
+No ambiguous OCR cell is promoted to verified experimental data by inference. Raw/provisional transcriptions stay separated from live model data. Derived values must be reproducible from documented equations and every live correlation must remain traceable to a published source.
