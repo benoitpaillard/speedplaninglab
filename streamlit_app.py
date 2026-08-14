@@ -810,6 +810,15 @@ with st.expander("Model range details", expanded=score < 100):
             "OpenPlaning is not available on this deployment; the fast comparison model is active."
         )
 
+from experimental_benchmarks import render_experimental_benchmarks
+
+render_experimental_benchmarks(
+    speed_kmh=speed,
+    width_m=beam,
+    bottom_v_deg=beta,
+    running_angle_deg=r["trim_deg"],
+)
+
 st.subheader("3D running geometry")
 view_col, info_col = st.columns([2.55, 1])
 with view_col:
