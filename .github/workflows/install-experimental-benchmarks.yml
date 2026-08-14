@@ -1,0 +1,40 @@
+name: Install experimental benchmark panel
+
+on:
+  push:
+    paths:
+      - .github/workflows/install-experimental-benchmarks.yml
+
+permissions:
+  contents: write
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wire benchmark panel
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('streamlit_app.py')
+          text = path.read_text()
+          marker = 'st.subheader("3D running geometry")'
+          insertion = '''from experimental_benchmarks import render_experimental_benchmarks\n\nrender_experimental_benchmarks(\n    speed_kmh=speed,\n    width_m=beam,\n    bottom_v_deg=beta,\n    running_angle_deg=r["trim_deg"],\n)\n\n'''
+          if 'render_experimental_benchmarks(' not in text:
+              if marker not in text:
+                  raise SystemExit('3D section marker not found')
+              text = text.replace(marker, insertion + marker, 1)
+          path.write_text(text)
+          PY
+      - name: Check syntax
+        run: python -m py_compile streamlit_app.py experimental_benchmarks.py smart_optimizer.py
+      - name: Commit and remove installer
+        run: |
+          rm .github/workflows/install-experimental-benchmarks.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add streamlit_app.py .github/workflows/install-experimental-benchmarks.yml
+          git commit -m "Wire published benchmark panel"
+          git push
