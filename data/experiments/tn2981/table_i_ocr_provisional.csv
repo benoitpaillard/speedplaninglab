@@ -1,0 +1,20 @@
+trim_deg,trim_flag,CA,Cv,CR,lm_over_b,CLb,CDb,CLS,CDS,source_table,confidence,note
+2.000000,2,0.850000,6.100000,0.210000,2.170000,0.045687,0.011287,0.021054,0.005202,Table I,provisional,Trim grouping from OCR not independently verified
+2.000000,2,0.850000,6.160000,0.310000,1.800000,0.044801,0.016339,0.024889,0.009077,Table I,provisional,Trim grouping from OCR not independently verified
+2.000000,2,0.850000,9.060000,0.140000,0.670000,0.020711,0.003411,0.030911,0.005091,Table I,provisional,Trim grouping from OCR not independently verified
+2.000000,2,0.850000,9.150000,0.200000,0.550000,0.020305,0.004778,0.036918,0.008687,Table I,provisional,Trim grouping from OCR not independently verified
+2.000000,2a,4.260000,12.200000,1.470000,4.790000,0.057243,0.019753,0.011950,0.004124,Table I,provisional,OCR grouping unverified; report footnote-a condition
+2.000000,2a,4.260000,13.370000,1.050000,2.540000,0.047662,0.011748,0.018765,0.004625,Table I,provisional,OCR grouping unverified; report footnote-a condition
+2.000000,2,4.260000,13.660000,1.200000,3.000000,0.045660,0.012862,0.015220,0.004287,Table I,provisional,Trim grouping from OCR not independently verified
+2.000000,2,4.260000,13.720000,1.040000,3.000000,0.045262,0.011050,0.015087,0.003683,Table I,provisional,Trim grouping from OCR not independently verified
+2.000000,2,4.260000,20.530000,0.520000,0.620000,0.020214,0.002467,0.032604,0.003980,Table I,provisional,Trim grouping from OCR not independently verified
+2.000000,2,4.260000,20.740000,0.640000,0.680000,0.019807,0.002976,0.029128,0.004376,Table I,provisional,Trim grouping from OCR not independently verified
+2.000000,2,4.260000,24.610000,0.630000,0.450000,0.014067,0.002080,0.031261,0.004623,Table I,provisional,Trim grouping from OCR not independently verified
+2.000000,2,6.390000,12.780000,2.450000,8.270000,0.078247,0.030001,0.009462,0.003628,Table I,provisional,Trim grouping from OCR not independently verified
+2.000000,2a,6.390000,13.370000,2.560000,7.790000,0.071494,0.028642,0.009178,0.003677,Table I,provisional,OCR grouping unverified; report footnote-a condition
+2.000000,2,6.390000,16.990000,1.680000,3.000000,0.044274,0.011640,0.014758,0.003880,Table I,provisional,Trim grouping from OCR not independently verified
+2.000000,2,6.390000,20.040000,1.100000,1.170000,0.031823,0.005478,0.027199,0.004682,Table I,provisional,Trim grouping from OCR not independently verified
+2.000000,2,6.390000,22.880000,1.010000,0.870000,0.024413,0.003859,0.028061,0.004435,Table I,provisional,Trim grouping from OCR not independently verified
+2.000000,2,6.390000,24.920000,0.940000,0.700000,0.020579,0.003027,0.029399,0.004325,Table I,provisional,Trim grouping from OCR not independently verified
+2.000000,2,10.650000,18.530000,3.710000,6.500000,0.062034,0.021610,0.009544,0.003325,Table I,provisional,Trim grouping from OCR not independently verified
+2.000000,2,10.650000,21.870000,2.710000,3.000000,0.044533,0.011332,0.014844,0.003777,Table I,provisional,Trim grouping from OCR not independently verified
