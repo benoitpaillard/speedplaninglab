@@ -17,44 +17,15 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-
           path = Path('streamlit_app.py')
           text = path.read_text()
-
-          old = '''from tn2981_digitized import render_tn2981_digitized
-
-render_tn2981_digitized(
-    speed_kmh=speed,
-    width_m=beam,
-    running_angle_deg=r["trim_deg"],
-    current_clb=r["cl"],
-    current_water_drag_n=r["water_resistance_n"],
-    current_wetted_length_m=r["wetted_length_m"],
-    water_density=rho_w,
-)
-'''
-          new = '''from published_flatplate_reference import render_published_flatplate_reference
-
-render_published_flatplate_reference(
-    speed_kmh=speed,
-    width_m=beam,
-    bottom_v_deg=beta,
-    running_angle_deg=r["trim_deg"],
-    current_lift_coeff=r["cl"],
-    current_water_drag_n=r["water_resistance_n"],
-    current_wetted_length_m=r["wetted_length_m"],
-    water_density=rho_w,
-    water_kinematic_viscosity=nu_w,
-)
-'''
+          old = 'from tn2981_digitized import render_tn2981_digitized\n\nrender_tn2981_digitized(\n    speed_kmh=speed,\n    width_m=beam,\n    running_angle_deg=r["trim_deg"],\n    current_clb=r["cl"],\n    current_water_drag_n=r["water_resistance_n"],\n    current_wetted_length_m=r["wetted_length_m"],\n    water_density=rho_w,\n)\n'
+          new = 'from published_flatplate_reference import render_published_flatplate_reference\n\nrender_published_flatplate_reference(\n    speed_kmh=speed,\n    width_m=beam,\n    bottom_v_deg=beta,\n    running_angle_deg=r["trim_deg"],\n    current_lift_coeff=r["cl"],\n    current_water_drag_n=r["water_resistance_n"],\n    current_wetted_length_m=r["wetted_length_m"],\n    water_density=rho_w,\n    water_kinematic_viscosity=nu_w,\n)\n'
           if old not in text:
               raise SystemExit('Could not find provisional TN-2981 block')
           text = text.replace(old, new, 1)
-
-          # Manufacturing constraint established for the record-board project.
           text = text.replace('length=1.72,', 'length=1.55,', 1)
           text = text.replace('lcg=0.30,', 'lcg=0.25,', 1)
-
           path.write_text(text)
           PY
       - name: Check syntax
