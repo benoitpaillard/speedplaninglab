@@ -623,11 +623,11 @@ with st.sidebar:
             speed=160.0,
             mass=90.0,
             beam=0.28,
-            lcg=0.30,
+            lcg=0.25,
             beta=0.0,
             tow=5.0,
             cda=0.32,
-            length=1.72,
+            length=1.55,
             tail_ratio=0.82,
             max_beam_pos=0.42,
             taper_start=0.68,
@@ -819,16 +819,18 @@ render_experimental_benchmarks(
     running_angle_deg=r["trim_deg"],
 )
 
-from tn2981_digitized import render_tn2981_digitized
+from published_flatplate_reference import render_published_flatplate_reference
 
-render_tn2981_digitized(
+render_published_flatplate_reference(
     speed_kmh=speed,
     width_m=beam,
+    bottom_v_deg=beta,
     running_angle_deg=r["trim_deg"],
-    current_clb=r["cl"],
+    current_lift_coeff=r["cl"],
     current_water_drag_n=r["water_resistance_n"],
     current_wetted_length_m=r["wetted_length_m"],
     water_density=rho_w,
+    water_kinematic_viscosity=nu_w,
 )
 
 st.subheader("3D running geometry")
